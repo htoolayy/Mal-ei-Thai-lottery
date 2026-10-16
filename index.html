@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ထိုင်းထီ တိုက်စစ်ရန်</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: #0f172a; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 15px; color: #fff; }
+    .card { background: #1e293b; padding: 22px; border-radius: 18px; width: 100%; max-width: 440px; box-shadow: 0 12px 30px rgba(0,0,0,0.45); text-align: center; }
+    .badge { background: #0284c7; color: #fff; font-size: 11px; padding: 4px 12px; border-radius: 20px; display: inline-block; margin-bottom: 8px; }
+    h2 { color: #38bdf8; font-size: 22px; margin-bottom: 4px; }
+    .draw-date { font-size: 13px; color: #94a3b8; margin-bottom: 16px; min-height: 20px; }
+
+    /* ထီပေါက်စဉ် အကျဉ်းပြကွက် */
+    .summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; background: #0f172a; padding: 12px; border-radius: 12px; margin-bottom: 18px; border: 1px solid #334155; text-align: left; }
+    .summary-item { font-size: 12px; color: #94a3b8; }
+    .summary-item b { display: block; font-size: 15px; color: #f8fafc; margin-top: 2px; letter-spacing: 1px; }
+    .first-prize-item { grid-column: span 2; border-bottom: 1px dashed #334155; padding-bottom: 6px; margin-bottom: 2px; }
+    .first-prize-item b { font-size: 20px; color: #38bdf8; }
+
+    input { width: 100%; padding: 14px; font-size: 22px; letter-spacing: 5px; text-align: center; background: #0f172a; color: #38bdf8; border: 2px solid #334155; border-radius: 10px; outline: none; margin-bottom: 12px; }
+    input:focus { border-color: #38bdf8; }
+    button { width: 100%; padding: 14px; font-size: 16px; font-weight: bold; background-color: #0284c7; color: #fff; border: none; border-radius: 10px; cursor: pointer; transition: 0.2s; }
+    button:hover { background-color: #0369a1; }
+
+    .result-box { margin-top: 16px; padding: 15px; border-radius: 10px; display: none; text-align: left; line-height: 1.7; font-size: 15px; }
+    .win { background-color: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid #22c55e; }
+    .lose { background-color: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid #ef4444; text-align: center; }
+    .status { font-size: 12px; color: #22c55e; margin-top: 14px; }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <span class="badge">Online Lottery</span>
+  <h2>ထိုင်းထီတိုက်ရန်</h2>
+  <div class="draw-date" id="drawDate">lottery.co.th မှ အချက်အလက်များ ချိတ်ဆက်နေပါသည်...</div>
+
+  <!-- ထီပေါက်စဉ် အကျဉ်းပြကွက် -->
+  <div class="summary-grid" id="summaryGrid">
+    <div class="summary-item first-prize-item">
+      ပထမဆု (၆,၀၀၀,၀၀၀ ဘတ်)
+      <b id="p1Display">-</b>
+    </div>
+    <div class="summary-item">
+      ၂ လုံးနောက် (၂,၀၀၀ ဘတ်)
+      <b id="p2Display">-</b>
+    </div>
+    <div class="summary-item">
+      ၃ လုံးရှေ့ (၄,၀၀၀ ဘတ်)
+      <b id="f3Display">-</b>
+    </div>
+    <div class="summary-item" style="grid-column: span 2;">
+      ၃ လုံးနောက် (၄,၀၀၀ ဘတ်)
+      <b id="b3Display">-</b>
+    </div>
+  </div>
+
+  <input type="tel" id="lotteryNumber" maxlength="6" placeholder="000000" autofocus>
+  <button onclick="checkLottery()">ထီတိုက်မည်</button>
+
+  <div id="resultBox" class="result-box"></div>
+  <div class="status" id="systemStatus">ရလဒ်များ ဆွဲယူနေပါသည်...</div>
+</div>
+
+<script>
+  // အချက်အလက်များ သိမ်းဆည်းမည့် Data Object
+  let lottoData = {
+    date: "ရလဒ်ရယူနေဆဲ",
+    firstPrize: "011781",
+    nearFirst: ["011780", "011782"],
+    secondPrize: ["040201", "487283", "715282", "924796", "987375"],
+    thirdPrize: [],
+    fourthPrize: [],
+    fifthPrize: [],
+    frontThree: ["402", "392"],
+    backThree: ["171", "255"],
+    backTwo: "48"
+  };
+
+  function toEngDigits(str) {
+    const mmDigits = ['၀','၁','၂','၃','၄','၅','၆','၇','၈','၉'];
+    return str.replace(/[၀-၉]/g, d => mmDigits.indexOf(d));
+  }
+
+  // lottery.co.th ထံမှ Multi-Proxy Fallback ဖြင့် အချက်အလက် ဆွဲယူခြင်း
+  async function fetchFromLotteryCoTh() {
+    const statusEl = document.getElementById('systemStatus');
+    const targetUrl = 'https://www.lottery.co.th/lotto';
+    const t = Date.now();
+
+    // ချိတ်ဆက်မှု မပြတ်တောက်စေရန် Proxy ၃ ခုဖြင့် အလှည့်ကျ ချိတ်ဆက်ခြင်း
+    const proxyList = [
+      `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl + '?t=' + t)}`,
+      `https://corsproxy.io/?url=${encodeURIComponent(targetUrl + '?t=' + t)}`,
+      `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl + '?t=' + t)}`
+    ];
+
+    let htmlContent = null;
+
+    for (let proxy of proxyList) {
+      try {
+        const res = await fetch(proxy);
+        if (!res.ok) continue;
+
+        if (proxy.includes('allorigins')) {
+          const json = await res.json();
+          htmlContent = json.contents;
+        } else {
+          htmlContent = await res.text();
+        }
+
+        if (htmlContent && htmlContent.includes('รางวัลที่')) {
+          break; // အောင်မြင်စွာ ရရှိပါက loop ရပ်မည်
+        }
+      } catch (err) {
+        // နောက် Proxy တစ်ခုဖြင့် ဆက်လက်ကြိုးစားမည်
+      }
+    }
+
+    if (!htmlContent) {
+      statusEl.innerText = "✓ မူလအချက်အလက်ဖြင့် အဆင်သင့်ရှိပါပြီ";
+      renderUI();
+      return;
+    }
+
+    parseLotteryHtml(htmlContent);
+  }
+
+  // lottery.co.th ၏ HTML ထဲမှ ဆုမဲအားလုံး (၁ မှ ၅ အထိ) အပြည့်အစုံ ခွဲထုတ်ယူခြင်း
+  function parseLotteryHtml(html) {
+    const statusEl = document.getElementById('systemStatus');
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+
+    // စာသားသီးသန့် ရယူနိုင်ရန် script နှင့် style များကို ဖယ်ရှားခြင်း
+    doc.querySelectorAll('script, style, noscript, header, footer, nav').forEach(e => e.remove());
+    const text = doc.body.innerText || doc.body.textContent;
+
+    // စာသားတုံးထဲမှ ဂဏန်းများကို အပြည့်အစုံ ဆွဲထုတ်ပေးသည့် Helper Function
+    function getTokens(chunk, length) {
+      if (!chunk) return [];
+      return chunk.replace(/[^\d]/g, ' ')
+                  .split(/\s+/)
+                  .filter(x => x.length === length);
+    }
+
+    const posP1 = text.indexOf('รางวัลที่ 1');
+    const posP2 = text.indexOf('รางวัลที่ 2');
+    const posP3 = text.indexOf('รางวัลที่ 3');
+    const posP4 = text.indexOf('รางวัลที่ 4');
+    const posP5 = text.indexOf('รางวัลที่ 5');
+
+    // ၁။ ပထမဆု
+    if (posP1 !== -1) {
+      const p1Nums = getTokens(text.substring(posP1, posP1 + 300), 6);
+      if (p1Nums.length > 0) {
+        lottoData.firstPrize = p1Nums[0];
+        const p1Int = parseInt(p1Nums[0], 10);
+        lottoData.nearFirst = [
+          String(p1Int - 1).padStart(6, '0'),
+          String(p1Int + 1).padStart(6, '0')
+        ];
+      }
+    }
+
+    // ၂။ ဒုတိယဆု (၅ လုံး)
+    if (posP2 !== -1 && posP3 !== -1) {
+      const p2Nums = getTokens(text.substring(posP2, posP3), 6);
+      if (p2Nums.length > 0) lottoData.secondPrize = [...new Set(p2Nums)].slice(0, 5);
+    }
+
+    // ၃။ တတိယဆု (၁၀ လုံး - ဘတ် ၈ သောင်း)
+    if (posP3 !== -1 && posP4 !== -1) {
+      const p3Nums = getTokens(text.substring(posP3, posP4), 6);
+      if (p3Nums.length > 0) lottoData.thirdPrize = [...new Set(p3Nums)].slice(0, 10);
+    }
+
+    // ၄။ စတုတ္ထဆု (အလုံး ၅၀ - ဘတ် ၄ သောင်း)
+    if (posP4 !== -1 && posP5 !== -1) {
+      const p4Nums = getTokens(text.substring(posP4, posP5), 6);
+      if (p4Nums.length > 0) lottoData.fourthPrize = [...new Set(p4Nums)].slice(0, 50);
+    }
+
+    // ၅။ ပဉ္စမဆု (အလုံး ၁၀၀ - ဘတ် ၂ သောင်း) - အလုံး ၁၀၀ စလုံး မပြတ်ကျန်စေရန် အပြည့်အစုံ ယူခြင်း
+    if (posP5 !== -1) {
+      const p5Nums = getTokens(text.substring(posP5, posP5 + 40000), 6);
+      if (p5Nums.length > 0) lottoData.fifthPrize = [...new Set(p5Nums)].slice(0, 100);
+    }
+
+    // ၃ လုံးရှေ့
+    const posF3 = text.indexOf('เลขหน้า 3 ตัว') !== -1 ? text.indexOf('เลขหน้า 3 ตัว') : text.indexOf('เลขหน้า3ตัว');
+    if (posF3 !== -1) {
+      const f3Nums = getTokens(text.substring(posF3, posF3 + 200), 3);
+      if (f3Nums.length >= 2) lottoData.frontThree = f3Nums.slice(0, 2);
+    }
+
+    // ၃ လုံးနောက်
+    const posB3 = text.indexOf('เลขท้าย 3 ตัว') !== -1 ? text.indexOf('เลขท้าย 3 ตัว') : text.indexOf('เลขท้าย3ตัว');
+    if (posB3 !== -1) {
+      const b3Nums = getTokens(text.substring(posB3, posB3 + 200), 3);
+      if (b3Nums.length >= 2) lottoData.backThree = b3Nums.slice(0, 2);
+    }
+
+    // ၂ လုံးနောက်
+    const posB2 = text.indexOf('เลขท้าย 2 ตัว') !== -1 ? text.indexOf('เลขท้าย 2 ตัว') : text.indexOf('เลขท้าย2ตัว');
+    if (posB2 !== -1) {
+      const b2Nums = getTokens(text.substring(posB2, posB2 + 200), 2);
+      if (b2Nums.length >= 1) lottoData.backTwo = b2Nums[0];
+    }
+
+    // ရက်စွဲ
+    const dMatch = text.match(/งวด(?:วันที่)?\s*([0-9]{1,2}\s+[^\s<"\n\r]+\s+[0-9]{2,4})/);
+    if (dMatch) lottoData.date = dMatch[1];
+
+    const totalPrizes = 1 + lottoData.secondPrize.length + lottoData.thirdPrize.length + lottoData.fourthPrize.length + lottoData.fifthPrize.length;
+    statusEl.innerText = `✓ lottery.co.th မှ ဆုမဲပေါင်း (${totalPrizes}) ခု ရယူပြီးပါပြီ`;
+    renderUI();
+  }
+
+  function renderUI() {
+    document.getElementById('drawDate').innerText = `ထွက်သည့်ရက်စွဲ - ${lottoData.date}`;
+    document.getElementById('p1Display').innerText = lottoData.firstPrize;
+    document.getElementById('p2Display').innerText = lottoData.backTwo;
+    document.getElementById('f3Display').innerText = lottoData.frontThree.join(" , ");
+    document.getElementById('b3Display').innerText = lottoData.backThree.join(" , ");
+  }
+
+  // စတင်ချိန်တွင် Function အား Run ခြင်း
+  fetchFromLotteryCoTh();
+
+  // ထီတိုက်စစ်သည့် Function
+  function checkLottery() {
+    let raw = document.getElementById('lotteryNumber').value.trim();
+    raw = toEngDigits(raw);
+    const resultBox = document.getElementById('resultBox');
+
+    if (raw.length !== 6 || !/^\d{6}$/.test(raw)) {
+      alert('ကျေးဇူးပြု၍ ဂဏန်း ၆ လုံး ပြည့်အောင် ရိုက်ထည့်ပါ');
+      return;
+    }
+
+    const input = String(raw);
+    let wonPrizes = [];
+
+    const front3 = input.slice(0, 3);
+    const back3 = input.slice(3, 6);
+    const back2 = input.slice(4, 6);
+
+    // ပထမဆု
+    if (input === lottoData.firstPrize) {
+      wonPrizes.push("🏆 ပထမဆု (၆,၀၀၀,၀၀၀ ဘတ်)");
+    }
+    // ပထမဆု ကပ်လျက်ဆု
+    if (lottoData.nearFirst.includes(input)) {
+      wonPrizes.push("✨ ပထမဆုနှင့် ကပ်လျက်ဆု (၁၀၀,၀၀၀ ဘတ်)");
+    }
+    // ဒုတိယဆု (ဘတ် ၂ သိန်း)
+    if (lottoData.secondPrize.includes(input)) {
+      wonPrizes.push("🥈 ဒုတိယဆု (၂၀၀,၀၀၀ ဘတ်)");
+    }
+    // တတိယဆု (ဘတ် ၈ သောင်း)
+    if (lottoData.thirdPrize.includes(input)) {
+      wonPrizes.push("🥉 တတိယဆု (၈၀,၀၀၀ ဘတ်)");
+    }
+    // စတုတ္ထဆု (ဘတ် ၄ သောင်း)
+    if (lottoData.fourthPrize.includes(input)) {
+      wonPrizes.push("🎖️ စတုတ္ထဆု (၄၀,၀၀၀ ဘတ်)");
+    }
+    // ပဉ္စမဆု (ဘတ် ၂ သောင်း)
+    if (lottoData.fifthPrize.includes(input)) {
+      wonPrizes.push("🎖️ ပဉ္စမဆု (၂၀,၀၀၀ ဘတ်)");
+    }
+    // ၃ လုံးရှေ့
+    if (lottoData.frontThree.includes(front3)) {
+      wonPrizes.push(`🎯 ၃ လုံးရှေ့ (${front3}) - ၄,၀၀၀ ဘတ်`);
+    }
+    // ၃ လုံးနောက်
+    if (lottoData.backThree.includes(back3)) {
+      wonPrizes.push(`🎯 ၃ လုံးနောက် (${back3}) - ၄,၀၀၀ ဘတ်`);
+    }
+    // ၂ လုံးနောက်
+    if (back2 === lottoData.backTwo) {
+      wonPrizes.push(`🎯 ၂ လုံးနောက် (${back2}) - ၂,၀၀၀ ဘတ်`);
+    }
+
+    resultBox.style.display = 'block';
+
+    if (wonPrizes.length > 0) {
+      resultBox.className = 'result-box win';
+      resultBox.innerHTML = `<strong>🎉 ဂုဏ်ယူပါသည်! ပေါက်မဲရရှိပါသည် -</strong><br><br>${wonPrizes.join('<br>')}`;
+    } else {
+      resultBox.className = 'result-box lose';
+      resultBox.innerHTML = `စိတ်မကောင်းပါ၊ ဤအကြိမ်တွင် ထီမပေါက်ပါ။<br><small style="color:#94a3b8;">နံပါတ်: ${input}</small>`;
+    }
+  }
+</script>
+
+</body>
+</html>
