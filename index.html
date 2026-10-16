@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ထိုင်းထီ တိုက်စစ်ရန်</title>
+  <style>
+    * { box-sizing: border-box; font-family: sans-serif; }
+    body { background-color: #f4f6f9; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 15px; }
+    .card { background: #ffffff; padding: 25px; border-radius: 14px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); width: 100%; max-width: 420px; text-align: center; }
+    h2 { color: #1e3a8a; margin-bottom: 8px; }
+    .draw-date { font-size: 14px; color: #64748b; margin-bottom: 20px; }
+    input { width: 100%; padding: 14px; font-size: 20px; letter-spacing: 4px; text-align: center; border: 2px solid #cbd5e1; border-radius: 8px; outline: none; margin-bottom: 15px; }
+    input:focus { border-color: #2563eb; }
+    button { width: 100%; padding: 14px; font-size: 16px; font-weight: bold; background-color: #2563eb; color: #fff; border: none; border-radius: 8px; cursor: pointer; transition: 0.2s; }
+    button:hover { background-color: #1d4ed8; }
+    .result-box { margin-top: 20px; padding: 15px; border-radius: 8px; display: none; }
+    .win { background-color: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+    .lose { background-color: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <h2>🇹🇭 ထိုင်းထီ တိုက်စစ်ရန်</h2>
+  <div class="draw-date" id="drawDate">ရလဒ်များကို ရယူနေပါသည်...</div>
+
+  <input type="tel" id="lotteryNumber" maxlength="6" placeholder="၆ လုံး ရိုက်ထည့်ပါ">
+  <button onclick="checkLottery()">ထီတိုက်မည်</button>
+
+  <div id="resultBox" class="result-box"></div>
+</div>
+
+<script>
+  let lottoData = null;
+
+  // ထိုင်းထီရလဒ်များကို API မှ တိုက်ရိုက်ဆွဲယူခြင်း
+  async function loadLottoData() {
+    try {
+      const res = await fetch('https://lotto.api.rayriffy.com/latest');
+      const data = await res.json();
+      lottoData = data.response;
+      document.getElementById('drawDate').innerText = `ထွက်သည့်ရက်စွဲ - ${lottoData.date}`;
+    } catch (e) {
+      document.getElementById('drawDate').innerText = 'ရလဒ်ရယူရာတွင် အမှားရှိနေပါသည်';
+    }
+  }
+
+  loadLottoData();
+
+  function checkLottery() {
+    const input = document.getElementById('lotteryNumber').value.trim();
+    const resultBox = document.getElementById('resultBox');
+
+    if (!lottoData) {
+      alert('ထီရလဒ်များ load မပြီးသေးပါ၊ ခေတ္တစောင့်ပါ');
+      return;
+    }
+    if (input.length !== 6 || isNaN(input)) {
+      alert('ကျေးဇူးပြု၍ ဂဏန်း ၆ လုံး တိကျစွာ ရိုက်ထည့်ပါ');
+      return;
+    }
+
+    let wonPrizes = [];
+    const front3 = input.substring(0, 3);
+    const back3 = input.substring(3, 6);
+    const back2 = input.substring(4, 6);
+
+    // ပထမဆုမှ ပဉ္စမဆုအထိ စစ်ဆေးခြင်း
+    lottoData.prizes.forEach(prize => {
+      if (prize.number.includes(input)) {
+        wonPrizes.push(`${prize.name} (ဆုကြေး: ${prize.reward} ဘတ်)`);
+      }
+    });
+
+    // ၃ လုံးရှေ့၊ ၃ လုံးနောက်၊ ၂ လုံးနောက် ဆုများ စစ်ဆေးခြင်း
+    lottoData.runningNumbers.forEach(item => {
+      if (item.id === "runningNumberFrontThree" && item.number.includes(front3)) {
+        wonPrizes.push(`၃ လုံးရှေ့ (${front3}) - ${item.reward} ဘတ်`);
+      }
+      if (item.id === "runningNumberBackThree" && item.number.includes(back3)) {
+        wonPrizes.push(`၃ လုံးနောက် (${back3}) - ${item.reward} ဘတ်`);
+      }
+      if (item.id === "runningNumberBackTwo" && item.number.includes(back2)) {
+        wonPrizes.push(`၂ လုံးနောက် (${back2}) - ${item.reward} ဘတ်`);
+      }
+    });
+
+    resultBox.style.display = 'block';
+    if (wonPrizes.length > 0) {
+      resultBox.className = 'result-box win';
+      resultBox.innerHTML = `<strong>🎉 ဂုဏ်ယူပါသည်! ပေါက်မဲများ -</strong><br><br>${wonPrizes.join('<br>')}`;
+    } else {
+      resultBox.className = 'result-box lose';
+      resultBox.innerHTML = `<strong>❌ စိတ်မကောင်းပါ၊ ထီမပေါက်ပါ</strong><br><small>နံပါတ်: ${input}</small>`;
+    }
+  }
+</script>
+
+</body>
+</html>
