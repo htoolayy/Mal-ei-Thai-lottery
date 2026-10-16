@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ထိုင်းထီတိုက်ရန်</title>
+  <style>
+    * { box-sizing: border-box; font-family: sans-serif; }
+    body { background-color: #0f172a; color: #fff; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 15px; }
+    .card { background: #1e293b; padding: 25px; border-radius: 16px; width: 100%; max-width: 380px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+    .logo { width: 85px; height: 85px; border-radius: 50%; object-fit: cover; border: 3px solid #38bdf8; margin-bottom: 12px; }
+    h2 { margin: 0 0 5px 0; font-size: 19px; }
+    p.date { color: #94a3b8; font-size: 13px; margin-bottom: 20px; }
+    input { width: 100%; padding: 12px; font-size: 22px; text-align: center; border-radius: 8px; border: 2px solid #334155; background: #0f172a; color: #38bdf8; letter-spacing: 4px; outline: none; margin-bottom: 15px; }
+    button { width: 100%; padding: 12px; font-size: 16px; font-weight: bold; background: #0284c7; color: white; border: none; border-radius: 8px; cursor: pointer; }
+    #result { margin-top: 18px; font-size: 15px; line-height: 1.6; padding: 12px; border-radius: 8px; display: none; }
+    .win { background: rgba(34, 197, 94, 0.2); color: #4ade80; border: 1px solid #22c55e; }
+    .lose { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid #ef4444; }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <!-- အဆင့် (၁) က ရလာတဲ့ Logo Link ထည့်ပါ -->
+  <img src="https://via.placeholder.com/100" class="logo" alt="Logo">
+  <h2>မိမိ Channel အမည်</h2>
+  <p class="date">ထီထွက်ရက် - ၁၆ ရက် အောက်တိုဘာ ၂၀၂၆</p>
+
+  <input type="tel" id="ticketNumber" maxlength="6" placeholder="ဂဏန်း ၆ လုံး">
+  <button onclick="checkLottery()">ထီတိုက်မည်</button>
+
+  <div id="result"></div>
+</div>
+
+<script>
+  // ထီထွက်သည့်အခါ ဤနေရာတွင် ဂဏန်းများ ပြောင်းပါ
+  const lotteryData = {
+    firstPrize: "123456",
+    frontThree: ["123", "456"],
+    backThree: ["789", "012"],
+    backTwo: "56"
+  };
+
+  function checkLottery() {
+    const num = document.getElementById("ticketNumber").value.trim();
+    const resultDiv = document.getElementById("result");
+    resultDiv.style.display = "block";
+
+    if (num.length !== 6 || isNaN(num)) {
+      resultDiv.className = "lose";
+      resultDiv.innerText = "ဂဏန်း ၆ လုံး အပြည့် ရိုက်ထည့်ပေးပါ။";
+      return;
+    }
+
+    const front3 = num.substring(0, 3);
+    const back3 = num.substring(3, 6);
+    const back2 = num.substring(4, 6);
+    let won = [];
+
+    if (num === lotteryData.firstPrize) won.push("🎉 ပထမဆု (ဘတ် ၆ သန်း)");
+    if (lotteryData.frontThree.includes(front3)) won.push("✨ ရှေ့ ၃ လုံးဆု (ဘတ် ၄,၀၀၀)");
+    if (lotteryData.backThree.includes(back3)) won.push("✨ နောက် ၃ လုံးဆု (ဘတ် ၄,၀၀၀)");
+    if (back2 === lotteryData.backTwo) won.push("✨ နောက် ၂ လုံးဆု (ဘတ် ၂,၀၀၀)");
+
+    if (won.length > 0) {
+      resultDiv.className = "win";
+      resultDiv.innerHTML = `ဂုဏ်ယူပါတယ်!<br>${won.join("<br>")}`;
+    } else {
+      resultDiv.className = "lose";
+      resultDiv.innerText = "စိတ်မကောင်းပါ၊ ထီမပေါက်ပါ။ နောင်အကြိမ် ကံထူးပါစေ။";
+    }
+  }
+</script>
+</body>
+</html>
